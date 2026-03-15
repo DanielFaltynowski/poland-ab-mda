@@ -51,3 +51,4 @@
 **/*.log
 **/*.sql
 **/*.sqlite
+.Rproj.user
