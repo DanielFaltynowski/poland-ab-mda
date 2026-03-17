@@ -281,58 +281,9 @@ statystyki %>%
   ) +
   theme(legend.position = "bottom")
 
-# ====================== MACIERZ KORELACJI - HEATMAPA ==========================
-cor_matrix <- dane %>%
-  select(where(is.numeric)) %>%
-  cor(use = "complete.obs")
-
-corrplot(
-  cor_matrix,
-  method = "circle",
-  type = "upper",
-  tl.col = "black",
-  tl.srt = 45,
-  col = colorRampPalette(c("#ef5350", "white", "#42a5f5"))(200),
-  title = "Wariant: Okręgi (wielkość = siła korelacji)",
-  mar = c(0,0,2,0)
-)
-
 # ====================== ŁADNA TABELA KORELACJI ================================
 
-# --- PEŁNA MACIERZ KORELACJI ---
-cor_table <- cor_matrix %>%
-  as.data.frame() %>%
-  rownames_to_column("Zmienna") %>%
-  mutate(across(-Zmienna, ~ cell_spec(round(.x, 2), "html", 
-                                      bold = TRUE,
-                                      color = ifelse(abs(.x) > 0.7, "white", "black"), 
-                                      background = case_when(
-                                        abs(.x) < 0.3 ~ "#FFCDD2", # brak/słaba
-                                        abs(.x) < 0.7 ~ "#FFF9C4", # umiarkowana/silna
-                                        abs(.x) <= 1.0 ~ "#2E7D32"  # bardzo silna
-                                      )
-  )))
-
-cor_table %>%
-  kbl(escape = FALSE, 
-      caption = "<b>Macierz korelacji Pearsona</b><br>
-                 <span style='font-size:12px; font-weight:normal; color:gray;'>
-                 Interpretacja siły związku (|r|):</span>
-                 <span style='background:#FFCDD2; padding:2px;'>0.0-0.3 brak/słaba</span>; 
-                 <span style='background:#FFF9C4; padding:2px;'>0.3-0.7 umiarkowana/silna</span>; 
-                 <span style='background:#2E7D32; color:white; padding:2px;'>0.7-1.0 bardzo silna</span>
-                 </span>",
-      align = "c") %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = FALSE,
-    font_size = 11
-  ) %>%
-  row_spec(0, bold = TRUE, color = "white", background = "blue") %>%
-  column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
-  scroll_box(width = "100%")
-
-# --- POŁOWA MACIERZY KORELACJI ---
+# --- PEŁNA MACIERZ KORELACJI --
 cor_matrix_upper <- cor_matrix
 cor_matrix_upper[lower.tri(cor_matrix_upper)] <- NA
 
@@ -369,6 +320,23 @@ cor_table %>%
   row_spec(0, bold = TRUE, color = "white", background = "blue") %>%
   column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
   scroll_box(width = "100%")
+
+# ====================== MACIERZ KORELACJI - HEATMAPA ==========================
+cor_matrix <- dane %>%
+  select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
+
+corrplot(
+  cor_matrix,
+  method = "circle",
+  type = "upper",
+  tl.col = "black",
+  tl.srt = 90,
+  tl.cex = 0.75,
+  col = colorRampPalette(c("#ef5350", "white", "#42a5f5"))(200),
+  title = "Wariant: Okręgi (wielkość = siła korelacji)",
+  mar = c(0,0,2,0)
+)
 
 # ====================== TOP 30 KORELACJI (bez powtórzeń) =========================
 cor_matrix_upper <- cor_matrix
