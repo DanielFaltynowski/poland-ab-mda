@@ -30,7 +30,7 @@ library(car)
 library(purrr)
 
 # =========================== DANE =============================================
-dane <- read_excel("./../../data/cleaned_data/poland-ab.xlsx", sheet = "normalized_data")
+dane <- read_excel("./../../data/cleaned_data/poland_ab.xlsx", sheet = "normalized_data")
 View(dane)
 
 # ====================== OBLICZENIE STATYSTYK ==================================
