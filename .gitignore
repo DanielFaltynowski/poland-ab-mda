@@ -31,6 +31,7 @@
 **/.RData
 **/.Ruserdata
 **/*.[R|r]data
+**/*.Rproj
 **/.Rproj.user/
 **/.Renviron
 **/*.buildresult
