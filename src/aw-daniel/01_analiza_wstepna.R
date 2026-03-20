@@ -1,4 +1,7 @@
-# ========================== PAKIETY ===========================================
+# ==============================================================================
+# INSTALACJA I IMPORT BIBLIOTEK
+# ==============================================================================
+
 if (!require("readxl")) install.packages("readxl")
 if (!require("tidyverse")) install.packages("tidyverse")
 if (!require("e1071")) install.packages("e1071")
@@ -13,6 +16,7 @@ if (!require("ggpubr")) install.packages("ggpubr")
 if (!require("viridis")) install.packages("viridis")
 if (!require("car")) install.packages("car")
 if (!require("purrr")) install.packages("purrr")
+if (!require("tidytext")) install.packages("tidytext")
 
 library(readxl)
 library(tidyverse)
@@ -28,33 +32,46 @@ library(ggpubr)
 library(viridis)
 library(car)
 library(purrr)
+library(tidytext)
 
-# =========================== DANE =============================================
-dane <- read_excel("./../../data/cleaned_data/poland_ab.xlsx", sheet = "normalized_data")
-dane <- read_excel("./../../data/cleaned_data/poland_ab.xlsx", sheet = "raw_data")
+
+# ==============================================================================
+# IMPORT DANYCH
+# ==============================================================================
+
+dane <- read_xlsx(
+  path = './dualizm_polski.xlsx',
+  sheet = 'dane'
+)
+
 View(dane)
 
-# ====================== OBLICZENIE STATYSTYK ==================================
+
+# ==============================================================================
+# STATYSTYKI OPISOWE
+# ==============================================================================
+
 statystyki <- dane %>%
   select(where(is.numeric)) %>%
   pivot_longer(cols = everything(), names_to = "Zmienna", values_to = "Wartosc") %>%
   group_by(Zmienna) %>%
   summarise(
-    N                   = n(),
-    Srednia             = mean(Wartosc),
-    Mediana             = median(Wartosc),
-    Min                 = min(Wartosc),
-    Max                 = max(Wartosc),
-    Odch_Std            = sd(Wartosc),
-    Wsp_Zm_Proc         = (Odch_Std / Srednia) * 100,
-    Skosnosc            = skewness(Wartosc, type = 2), 
-    Gini                = ineq(Wartosc, type = "Gini")
+    N = n(),
+    Srednia = mean(Wartosc),
+    Mediana = median(Wartosc),
+    Min = min(Wartosc),
+    Max = max(Wartosc),
+    Odch_Std = sd(Wartosc),
+    Skosnosc = skewness(Wartosc, type = 2),
+    Kurtoza = kurtosis(Wartosc, type = 2),
+    Wsp_Zm_Proc = (Odch_Std / Srednia) * 100,
+    Gini = ineq(Wartosc, type = "Gini")
   ) %>%
   mutate(
     Klasa_Asymetrii = case_when(
-      Skosnosc < -1.2 ~ "silna lewostronna",     # Poniżej -1.2
-      Skosnosc > 1.2  ~ "silna prawostronna",    # Powyżej 1.2 (Twoja zmiana)
-      TRUE            ~ "słaba/umiarkowana"      # Wszystko pomiędzy (-1.2 a 1.2)
+      Skosnosc < -1.2 ~ "silna lewostronna",
+      Skosnosc > 1.2  ~ "silna prawostronna",
+      TRUE            ~ "słaba/umiarkowana"
     ),
     Klasa_Zmiennosci = case_when(
       Wsp_Zm_Proc < 10 ~ "bardzo mała zmienność",
@@ -65,9 +82,13 @@ statystyki <- dane %>%
     )
   ) %>%
   mutate(across(where(is.numeric), ~ round(., 2))) %>%
-  arrange(desc(Wsp_Zm_Proc))
+  arrange(desc(Zmienna))
 
-# ====================== ŁADNA TABLICA W VIEWERZE ==============================
+
+# ==============================================================================
+# TABELARYCZNE BADANIE ASYMETRII I WSPÓŁCZYNNIKA ZMIENNOŚCI
+# ==============================================================================
+
 statystyki %>%
   arrange(Zmienna) %>%
   mutate(
@@ -133,7 +154,118 @@ statystyki %>%
   column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
   scroll_box(width = "100%", height = "850px")
 
-# ====================== PRZYGOTOWANIE DANYCH DO WYKRESÓW ======================
+
+# ==============================================================================
+# BARPLOTY DLA WSZYSTKICH ZMIENNYCH POSORTOWANE
+# ==============================================================================
+
+dane_long <- dane %>%
+  pivot_longer(cols = where(is.numeric), 
+               names_to = "zmienna", 
+               values_to = "wartosc")
+
+ggplot(dane_long, aes(x = reorder_within(woj, wartosc, zmienna), y = wartosc, fill = woj)) +
+  geom_col() +
+  facet_wrap(~zmienna, scales = "free", ncol = 6) +
+  scale_x_reordered() +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Porównanie województw w podziale na zmienne",
+       subtitle = "Posortowane od największej do najmniejszej wartości",
+       x = "Województwo",
+       y = "Wartość zmiennej") +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 10),
+    panel.grid = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+
+# ==============================================================================
+# WYKRES SYNTETYCZNY
+# ==============================================================================
+
+statystyki %>%
+  ggplot(aes(x = Skosnosc, y = Wsp_Zm_Proc, color = Klasa_Asymetrii, shape = Klasa_Zmiennosci)) +
+  geom_point(size = 4, alpha = 0.8) +
+  geom_text(aes(label = Zmienna), vjust = -0.8, size = 3, color = "black") +
+  geom_vline(xintercept = c(-1.2, 1.2), linetype = "dashed", color = "gray50") +
+  geom_hline(yintercept = c(25, 50), linetype = "dashed", color = "gray50") +
+  scale_color_manual(
+    values = c(
+      "silna lewostronna" = "#ef5350",
+      "słaba/umiarkowana" = "#66bb6a",
+      "silna prawostronna" = "#42a5f5"
+    )
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Mapa zmiennych: Asymetria vs. Zmienność",
+    subtitle = "Linie przerywane = granice klasyfikacji",
+    x = "Skośność (asymetria)",
+    y = "Współczynnik zmienności (%)",
+    color = "Klasa asymetrii",
+    shape = "Klasa zmienności"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical"
+  )
+
+
+# ==============================================================================
+# MACIERZ KORELACJI
+# ==============================================================================
+
+cor_matrix <- dane %>%
+  select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
+
+cor_matrix_upper <- cor_matrix
+cor_matrix_upper[lower.tri(cor_matrix_upper)] <- NA
+
+cor_table <- cor_matrix_upper %>%
+  as.data.frame() %>%
+  rownames_to_column("Zmienna") %>%
+  mutate(across(-Zmienna, ~ map_chr(.x, function(val) {
+    if (is.na(val)) return("")
+    cell_spec(round(val, 2), "html", 
+              bold = TRUE,
+              #color = ifelse(abs(val) > 0.7, "white", "black"), 
+              color = ifelse(abs(val) > 0.7, "white", ifelse(abs(val) > 0.3, "black", "white")),
+              background = case_when(
+                abs(val) < 0.3 ~ "#008000",
+                abs(val) < 0.7 ~ "#FFFFC5",
+                abs(val) <= 1.0 ~ "#FF0000"
+              ))
+  })))
+
+cor_table %>%
+  kbl(escape = FALSE, 
+      caption = "<b style='color:black'>Macierz korelacji Pearsona (Górny trójkąt)</b><br>
+                 <span style='font-size:12px; font-weight:normal; color:black;'>
+                 Interpretacja siły związku (|corr|): 
+                 <span style='background:#008000; color:white; padding:2px;'>0.0-0.3 brak/słaba</span>; 
+                 <span style='background:#FFFFC5; color:black; padding:2px;'>0.3-0.7 umiarkowana/silna</span>; 
+                 <span style='background:#FF0000; color:white; padding:2px;'>0.7-1.0 bardzo silna</span>
+                 </span>",
+      align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 11
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "blue") %>%
+  column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
+  scroll_box(width = "100%")
+
+
+# ==============================================================================
+# HISTOGRAMY WEDŁUG ASYMETRII
+# ==============================================================================
+
 dane_wykresy <- dane %>%
   select(where(is.numeric)) %>%
   pivot_longer(cols = everything(), names_to = "Zmienna", values_to = "Wartosc") %>%
@@ -142,10 +274,18 @@ dane_wykresy <- dane %>%
     by = "Zmienna"
   )
 
-# ====================== HISTOGRAMY WEDŁUG ASYMETRII ===========================
-
 # --- GRUPA 1: SILNA ASYMETRIA LEWOSTRONNA ---
-# Brak zmiennych silnie asymetrycznych lewostronnie
+dane_wykresy %>%
+  filter(Klasa_Asymetrii == "silna lewostronna") %>%
+  ggplot(aes(x = Wartosc)) +
+  geom_histogram(bins = 15, fill = "#ef5350", color = "white", alpha = 0.8) +
+  facet_wrap(~Zmienna, scales = "free") +
+  theme_minimal() +
+  labs(
+    title = "Grupa 3: Silna asymetria lewostronna (Skośność < 1.2)",
+    x = "Wartość", y = "Liczba wystąpień"
+  ) +
+  theme(strip.text = element_text(size = 11, face = "bold"))
 
 # --- GRUPA 2: ASYMETRIA SŁABA / UMIARKOWANA ---
 dane_wykresy %>%
@@ -174,10 +314,31 @@ dane_wykresy %>%
   ) +
   theme(strip.text = element_text(size = 11, face = "bold"))
 
-# ====================== HISTOGRAMY WEDŁUG ZMIENNOŚCI ==========================
+
+# ==============================================================================
+# HISTOGRAMY WEDŁUG ZMIENNOŚCI
+# ==============================================================================
+
+dane_wykresy <- dane %>%
+  select(where(is.numeric)) %>%
+  pivot_longer(cols = everything(), names_to = "Zmienna", values_to = "Wartosc") %>%
+  left_join(
+    statystyki %>% select(Zmienna, Klasa_Asymetrii, Klasa_Zmiennosci, Wsp_Zm_Proc, Skosnosc), 
+    by = "Zmienna"
+  )
 
 # --- ZMIENNOŚĆ: BARDZO MAŁA I MAŁA (<25%) ---
-# Brak zmiennych dla których zmienność <25%
+dane_wykresy %>%
+  filter(Klasa_Zmiennosci %in% c("mała zmienność", "bardzo małą zmienność")) %>%
+  ggplot(aes(x = Wartosc)) +
+  geom_histogram(bins = 15, fill = "#66bb6a", color = "white", alpha = 0.8) +
+  facet_wrap(~Zmienna, scales = "free") +
+  theme_minimal() +
+  labs(
+    title = "Zmienne o umiarkowanej zmienności (Wsp. Zm. < 25%)",
+    x = "Wartość", y = "Liczba wystąpień"
+  ) +
+  theme(strip.text = element_text(size = 11, face = "bold"))
 
 # --- ZMIENNOŚĆ: UMIARKOWANA (25-50%) ---
 dane_wykresy %>%
@@ -205,169 +366,11 @@ dane_wykresy %>%
   ) +
   theme(strip.text = element_text(size = 11, face = "bold"))
 
-# ====================== WYKRES SYNTETYCZNY: ASYMETRIA vs. ZMIENNOŚĆ ===========
-statystyki %>%
-  ggplot(aes(x = Skosnosc, y = Wsp_Zm_Proc, color = Klasa_Asymetrii, shape = Klasa_Zmiennosci)) +
-  geom_point(size = 4, alpha = 0.8) +
-  geom_text(aes(label = Zmienna), vjust = -0.8, size = 3, color = "black") +
-  geom_vline(xintercept = c(-1.2, 1.2), linetype = "dashed", color = "gray50") +
-  geom_hline(yintercept = c(25, 50), linetype = "dashed", color = "gray50") +
-  scale_color_manual(
-    values = c(
-      "silna lewostronna" = "#ef5350",
-      "słaba/umiarkowana" = "#66bb6a",
-      "silna prawostronna" = "#42a5f5"
-    )
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Mapa zmiennych: Asymetria vs. Zmienność",
-    subtitle = "Linie przerywane = granice klasyfikacji",
-    x = "Skośność (asymetria)",
-    y = "Współczynnik zmienności (%)",
-    color = "Klasa asymetrii",
-    shape = "Klasa zmienności"
-  ) +
-  theme(
-    legend.position = "bottom",
-    legend.box = "vertical"  # Legendy wertykalnie (jedna pod drugą)
-  )
 
-# ====================== RANKING ZMIENNYCH =====================================
+# ==============================================================================
+# WSZYSTKIE PARY ZMIENNYCH SKORELOWANYCH > 0.7
+# ==============================================================================
 
-# Ranking po zmienności
-statystyki %>%
-  ggplot(aes(x = reorder(Zmienna, Wsp_Zm_Proc), y = Wsp_Zm_Proc, fill = Klasa_Zmiennosci)) +
-  geom_col() +
-  coord_flip() +
-  scale_fill_manual(
-    values = c(
-      "bardzo mała zmienność" = "#66bb6a",
-      "mała zmienność" = "#9ccc65",
-      "umiarkowana zmienność" = "#FFA726",
-      "duża zmienność" = "#FF7043",
-      "bardzo duża zmienność" = "#ef5350"
-    )
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Ranking zmiennych według zmienności",
-    x = "Zmienna",
-    y = "Współczynnik zmienności (%)",
-    fill = "Klasa zmienności"
-  ) +
-  theme(legend.position = "bottom")
-
-
-# Ranking po asymetrii (wartość bezwzględna)
-statystyki %>%
-  mutate(Abs_Skosnosc = abs(Skosnosc)) %>%
-  ggplot(aes(x = reorder(Zmienna, Abs_Skosnosc), y = Skosnosc, fill = Klasa_Asymetrii)) +
-  geom_col() +
-  coord_flip() +
-  geom_hline(yintercept = c(-1.2, 1.2), linetype = "dashed", color = "gray30") +
-  scale_fill_manual(
-    values = c(
-      "silna lewostronna" = "#ef5350",
-      "słaba/umiarkowana" = "#66bb6a",
-      "silna prawostronna" = "#42a5f5"
-    )
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Ranking zmiennych według asymetrii",
-    x = "Zmienna",
-    y = "Skośność",
-    fill = "Klasa asymetrii"
-  ) +
-  theme(legend.position = "bottom")
-
-# ====================== ŁADNA TABELA KORELACJI ================================
-
-# --- PEŁNA MACIERZ KORELACJI --
-cor_matrix_upper <- cor_matrix
-cor_matrix_upper[lower.tri(cor_matrix_upper)] <- NA
-
-cor_table <- cor_matrix_upper %>%
-  as.data.frame() %>%
-  rownames_to_column("Zmienna") %>%
-  mutate(across(-Zmienna, ~ map_chr(.x, function(val) {
-    if (is.na(val)) return("")
-    cell_spec(round(val, 2), "html", 
-              bold = TRUE,
-              color = ifelse(abs(val) > 0.7, "white", "black"), 
-              background = case_when(
-                abs(val) < 0.3 ~ "#FFCDD2",
-                abs(val) < 0.7 ~ "#FFF9C4",
-                abs(val) <= 1.0 ~ "#2E7D32"
-              ))
-  })))
-
-cor_table %>%
-  kbl(escape = FALSE, 
-      caption = "<b>Macierz korelacji Pearsona (Górny trójkąt)</b><br>
-                 <span style='font-size:12px; font-weight:normal; color:gray;'>
-                 Interpretacja siły związku (|r|): 
-                 <span style='background:#FFCDD2; padding:2px;'>0.0-0.3 brak/słaba</span>; 
-                 <span style='background:#FFF9C4; padding:2px;'>0.3-0.7 umiarkowana/silna</span>; 
-                 <span style='background:#2E7D32; color:white; padding:2px;'>0.7-1.0 bardzo silna</span>
-                 </span>",
-      align = "c") %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = FALSE,
-    font_size = 11
-  ) %>%
-  row_spec(0, bold = TRUE, color = "white", background = "blue") %>%
-  column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
-  scroll_box(width = "100%")
-
-# ====================== MACIERZ KORELACJI - HEATMAPA ==========================
-cor_matrix <- dane %>%
-  select(where(is.numeric)) %>%
-  cor(use = "complete.obs")
-
-corrplot(
-  cor_matrix,
-  method = "circle",
-  type = "upper",
-  tl.col = "black",
-  tl.srt = 90,
-  tl.cex = 0.75,
-  col = colorRampPalette(c("#ef5350", "white", "#42a5f5"))(200),
-  title = "Wariant: Okręgi (wielkość = siła korelacji)",
-  mar = c(0,0,2,0)
-)
-
-# ====================== TOP 30 KORELACJI (bez powtórzeń) =========================
-cor_matrix_upper <- cor_matrix
-cor_matrix_upper[lower.tri(cor_matrix_upper, diag = TRUE)] <- NA
-
-cor_matrix_upper %>%
-  melt(na.rm = TRUE) %>%
-  mutate(abs_value = abs(value)) %>%
-  arrange(desc(abs_value)) %>%
-  slice_head(n = 30) %>%
-  ggplot(aes(x = reorder(paste(Var1, "-", Var2), abs_value), 
-             y = value, 
-             fill = value > 0)) +
-  geom_col() +
-  coord_flip() +
-  scale_fill_manual(
-    values = c("TRUE" = "#42a5f5", "FALSE" = "#ef5350"),  # ✅ POPRAWIONE!
-    #          NIEBIESKI = dodatnie    CZERWONY = ujemne
-    labels = c("Dodatnia", "Ujemna")
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Top 30 najsilniejszych korelacji",
-    x = "Para zmiennych",
-    y = "Współczynnik korelacji",
-    fill = "Typ"
-  ) +
-  theme(legend.position = "bottom")
-
-# ====================== KORELACJE >= 0.7 (bez powtórzeń) =========================
 cor_matrix_upper <- cor_matrix
 cor_matrix_upper[lower.tri(cor_matrix_upper, diag = TRUE)] <- NA
 
@@ -382,8 +385,7 @@ cor_matrix_upper %>%
   geom_col() +
   coord_flip() +
   scale_fill_manual(
-    values = c("TRUE" = "#42a5f5", "FALSE" = "#ef5350"),  # ✅ POPRAWIONE!
-    #          NIEBIESKI = dodatnie    CZERWONY = ujemne
+    values = c("TRUE" = "#FF0000", "FALSE" = "#FF0000"),
     labels = c("Dodatnia", "Ujemna")
   ) +
   theme_minimal() +
