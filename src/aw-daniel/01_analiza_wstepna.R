@@ -17,6 +17,9 @@ if (!require("viridis")) install.packages("viridis")
 if (!require("car")) install.packages("car")
 if (!require("purrr")) install.packages("purrr")
 if (!require("tidytext")) install.packages("tidytext")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("tidyr")) install.packages("tidyr")
 
 library(readxl)
 library(tidyverse)
@@ -33,6 +36,9 @@ library(viridis)
 library(car)
 library(purrr)
 library(tidytext)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
 
 
 # ==============================================================================
@@ -396,3 +402,62 @@ cor_matrix_upper %>%
     fill = "Typ"
   ) +
   theme(legend.position = "bottom")
+
+
+# ==============================================================================
+# WYKRESY BLANDA-ALTMANA
+# ==============================================================================
+
+cor_matrix <- dane %>%
+  select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
+
+cor_matrix_upper <- cor_matrix
+cor_matrix_upper[lower.tri(cor_matrix_upper, diag = TRUE)] <- NA
+
+pairs_list <- cor_matrix_upper %>%
+  melt(na.rm = TRUE) %>%
+  filter(abs(value) >= 0.7)
+
+ba_plots_data <- pairs_list %>%
+  purrr::pmap_dfr(function(Var1, Var2, value) {
+    v1_name <- as.character(Var1)
+    v2_name <- as.character(Var2)
+    
+    data.frame(
+      Para = paste(v1_name, "vs", v2_name),
+      Srednia = (dane[[v1_name]] + dane[[v2_name]]) / 2,
+      Roznica = dane[[v1_name]] - dane[[v2_name]]
+    )
+  })
+
+ba_stats <- ba_plots_data %>%
+  group_by(Para) %>%
+  summarise(
+    mean_diff = mean(Roznica, na.rm = TRUE),
+    sd_diff = sd(Roznica, na.rm = TRUE),
+    upper_loa = mean_diff + (1.96 * sd_diff),
+    lower_loa = mean_diff - (1.96 * sd_diff)
+  )
+
+ggplot(ba_plots_data, aes(x = Srednia, y = Roznica)) +
+  geom_point(alpha = 0.4, size = 1, color = "steelblue") +
+  geom_hline(data = ba_stats, aes(yintercept = mean_diff), 
+             color = "darkred", size = 0.7) +
+  geom_hline(data = ba_stats, aes(yintercept = upper_loa), 
+             color = "darkred", linetype = "dashed") +
+  geom_hline(data = ba_stats, aes(yintercept = lower_loa), 
+             color = "darkred", linetype = "dashed") +
+  facet_wrap(~Para, ncol = 5, scales = "free") +
+  theme_bw() +
+  labs(
+    title = "Zestawienie wykresów Blanda-Altmana",
+    subtitle = "Korelacja >= 0.7",
+    x = "Średnia między x_i, a y_i",
+    y = "Różnica x_i - y_i"
+  ) +
+  theme(
+    strip.text = element_text(size = 7, face = "bold"),
+    axis.text = element_text(size = 6),
+    axis.title = element_text(size = 9)
+  )
