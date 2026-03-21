@@ -190,85 +190,6 @@ ggplot(dane_long, aes(x = reorder_within(woj, wartosc, zmienna), y = wartosc, fi
 
 
 # ==============================================================================
-# WYKRES SYNTETYCZNY
-# ==============================================================================
-
-statystyki %>%
-  ggplot(aes(x = Skosnosc, y = Wsp_Zm_Proc, color = Klasa_Asymetrii, shape = Klasa_Zmiennosci)) +
-  geom_point(size = 4, alpha = 0.8) +
-  geom_text(aes(label = Zmienna), vjust = -0.8, size = 3, color = "black") +
-  geom_vline(xintercept = c(-1.2, 1.2), linetype = "dashed", color = "gray50") +
-  geom_hline(yintercept = c(25, 50), linetype = "dashed", color = "gray50") +
-  scale_color_manual(
-    values = c(
-      "silna lewostronna" = "#ef5350",
-      "słaba/umiarkowana" = "#66bb6a",
-      "silna prawostronna" = "#42a5f5"
-    )
-  ) +
-  theme_minimal() +
-  labs(
-    title = "Mapa zmiennych: Asymetria vs. Zmienność",
-    subtitle = "Linie przerywane = granice klasyfikacji",
-    x = "Skośność (asymetria)",
-    y = "Współczynnik zmienności (%)",
-    color = "Klasa asymetrii",
-    shape = "Klasa zmienności"
-  ) +
-  theme(
-    legend.position = "bottom",
-    legend.box = "vertical"
-  )
-
-
-# ==============================================================================
-# MACIERZ KORELACJI
-# ==============================================================================
-
-cor_matrix <- dane %>%
-  select(where(is.numeric)) %>%
-  cor(use = "complete.obs")
-
-cor_matrix_upper <- cor_matrix
-cor_matrix_upper[lower.tri(cor_matrix_upper)] <- NA
-
-cor_table <- cor_matrix_upper %>%
-  as.data.frame() %>%
-  rownames_to_column("Zmienna") %>%
-  mutate(across(-Zmienna, ~ map_chr(.x, function(val) {
-    if (is.na(val)) return("")
-    cell_spec(round(val, 2), "html", 
-              bold = TRUE,
-              #color = ifelse(abs(val) > 0.7, "white", "black"), 
-              color = ifelse(abs(val) > 0.7, "white", ifelse(abs(val) > 0.3, "black", "white")),
-              background = case_when(
-                abs(val) < 0.3 ~ "#008000",
-                abs(val) < 0.7 ~ "#FFFFC5",
-                abs(val) <= 1.0 ~ "#FF0000"
-              ))
-  })))
-
-cor_table %>%
-  kbl(escape = FALSE, 
-      caption = "<b style='color:black'>Macierz korelacji Pearsona (Górny trójkąt)</b><br>
-                 <span style='font-size:12px; font-weight:normal; color:black;'>
-                 Interpretacja siły związku (|corr|): 
-                 <span style='background:#008000; color:white; padding:2px;'>0.0-0.3 brak/słaba</span>; 
-                 <span style='background:#FFFFC5; color:black; padding:2px;'>0.3-0.7 umiarkowana/silna</span>; 
-                 <span style='background:#FF0000; color:white; padding:2px;'>0.7-1.0 bardzo silna</span>
-                 </span>",
-      align = "c") %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = FALSE,
-    font_size = 11
-  ) %>%
-  row_spec(0, bold = TRUE, color = "white", background = "blue") %>%
-  column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
-  scroll_box(width = "100%")
-
-
-# ==============================================================================
 # HISTOGRAMY WEDŁUG ASYMETRII
 # ==============================================================================
 
@@ -374,6 +295,85 @@ dane_wykresy %>%
 
 
 # ==============================================================================
+# WYKRES SYNTETYCZNY
+# ==============================================================================
+
+statystyki %>%
+  ggplot(aes(x = Skosnosc, y = Wsp_Zm_Proc, color = Klasa_Asymetrii, shape = Klasa_Zmiennosci)) +
+  geom_point(size = 4, alpha = 0.8) +
+  geom_text(aes(label = Zmienna), vjust = -0.8, size = 3, color = "black") +
+  geom_vline(xintercept = c(-1.2, 1.2), linetype = "dashed", color = "gray50") +
+  geom_hline(yintercept = c(25, 50), linetype = "dashed", color = "gray50") +
+  scale_color_manual(
+    values = c(
+      "silna lewostronna" = "#ef5350",
+      "słaba/umiarkowana" = "#66bb6a",
+      "silna prawostronna" = "#42a5f5"
+    )
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Mapa zmiennych: Asymetria vs. Zmienność",
+    subtitle = "Linie przerywane = granice klasyfikacji",
+    x = "Skośność (asymetria)",
+    y = "Współczynnik zmienności (%)",
+    color = "Klasa asymetrii",
+    shape = "Klasa zmienności"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical"
+  )
+
+
+# ==============================================================================
+# MACIERZ KORELACJI
+# ==============================================================================
+
+cor_matrix <- dane %>%
+  select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
+
+cor_matrix_upper <- cor_matrix
+cor_matrix_upper[lower.tri(cor_matrix_upper)] <- NA
+
+cor_table <- cor_matrix_upper %>%
+  as.data.frame() %>%
+  rownames_to_column("Zmienna") %>%
+  mutate(across(-Zmienna, ~ map_chr(.x, function(val) {
+    if (is.na(val)) return("")
+    cell_spec(round(val, 2), "html", 
+              bold = TRUE,
+              #color = ifelse(abs(val) > 0.7, "white", "black"), 
+              color = ifelse(abs(val) > 0.7, "white", ifelse(abs(val) > 0.3, "black", "white")),
+              background = case_when(
+                abs(val) < 0.3 ~ "#008000",
+                abs(val) < 0.7 ~ "#FFFFC5",
+                abs(val) <= 1.0 ~ "#FF0000"
+              ))
+  })))
+
+cor_table %>%
+  kbl(escape = FALSE, 
+      caption = "<b style='color:black'>Macierz korelacji Pearsona (Górny trójkąt)</b><br>
+                 <span style='font-size:12px; font-weight:normal; color:black;'>
+                 Interpretacja siły związku (|corr|): 
+                 <span style='background:#008000; color:white; padding:2px;'>0.0-0.3 brak/słaba</span>; 
+                 <span style='background:#FFFFC5; color:black; padding:2px;'>0.3-0.7 umiarkowana/silna</span>; 
+                 <span style='background:#FF0000; color:white; padding:2px;'>0.7-1.0 bardzo silna</span>
+                 </span>",
+      align = "c") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE,
+    font_size = 11
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "blue") %>%
+  column_spec(1, bold = TRUE, background = "#f0f0f0") %>%
+  scroll_box(width = "100%")
+
+
+# ==============================================================================
 # WSZYSTKIE PARY ZMIENNYCH SKORELOWANYCH > 0.7
 # ==============================================================================
 
@@ -402,62 +402,3 @@ cor_matrix_upper %>%
     fill = "Typ"
   ) +
   theme(legend.position = "bottom")
-
-
-# ==============================================================================
-# WYKRESY BLANDA-ALTMANA
-# ==============================================================================
-
-cor_matrix <- dane %>%
-  select(where(is.numeric)) %>%
-  cor(use = "complete.obs")
-
-cor_matrix_upper <- cor_matrix
-cor_matrix_upper[lower.tri(cor_matrix_upper, diag = TRUE)] <- NA
-
-pairs_list <- cor_matrix_upper %>%
-  melt(na.rm = TRUE) %>%
-  filter(abs(value) >= 0.7)
-
-ba_plots_data <- pairs_list %>%
-  purrr::pmap_dfr(function(Var1, Var2, value) {
-    v1_name <- as.character(Var1)
-    v2_name <- as.character(Var2)
-    
-    data.frame(
-      Para = paste(v1_name, "vs", v2_name),
-      Srednia = (dane[[v1_name]] + dane[[v2_name]]) / 2,
-      Roznica = dane[[v1_name]] - dane[[v2_name]]
-    )
-  })
-
-ba_stats <- ba_plots_data %>%
-  group_by(Para) %>%
-  summarise(
-    mean_diff = mean(Roznica, na.rm = TRUE),
-    sd_diff = sd(Roznica, na.rm = TRUE),
-    upper_loa = mean_diff + (1.96 * sd_diff),
-    lower_loa = mean_diff - (1.96 * sd_diff)
-  )
-
-ggplot(ba_plots_data, aes(x = Srednia, y = Roznica)) +
-  geom_point(alpha = 0.4, size = 1, color = "steelblue") +
-  geom_hline(data = ba_stats, aes(yintercept = mean_diff), 
-             color = "darkred", size = 0.7) +
-  geom_hline(data = ba_stats, aes(yintercept = upper_loa), 
-             color = "darkred", linetype = "dashed") +
-  geom_hline(data = ba_stats, aes(yintercept = lower_loa), 
-             color = "darkred", linetype = "dashed") +
-  facet_wrap(~Para, ncol = 5, scales = "free") +
-  theme_bw() +
-  labs(
-    title = "Zestawienie wykresów Blanda-Altmana",
-    subtitle = "Korelacja >= 0.7",
-    x = "Średnia między x_i, a y_i",
-    y = "Różnica x_i - y_i"
-  ) +
-  theme(
-    strip.text = element_text(size = 7, face = "bold"),
-    axis.text = element_text(size = 6),
-    axis.title = element_text(size = 9)
-  )
