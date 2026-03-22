@@ -20,6 +20,7 @@ if (!require("tidytext")) install.packages("tidytext")
 if (!require("ggplot2")) install.packages("ggplot2")
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("tidyr")) install.packages("tidyr")
+if (!require("reactable")) install.packages("reactable")
 
 library(readxl)
 library(tidyverse)
@@ -39,6 +40,30 @@ library(tidytext)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(reactable)
+
+
+pakiety <- c(
+  "tidyverse",
+  "readxl",
+  "e1071",
+  "ineq",
+  "kableExtra", 
+  "gridExtra", 
+  "corrplot", 
+  "reshape2", 
+  "ggrepel",
+  "ggpubr", 
+  "reactable", 
+  "tidytext"
+)
+
+package.check <- lapply(pakiety, function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE)
+    library(x, character.only = TRUE)
+  }
+})
 
 
 # ==============================================================================
@@ -46,11 +71,12 @@ library(tidyr)
 # ==============================================================================
 
 dane <- read_xlsx(
-  path = './dualizm_polski.xlsx',
+  path = './01_analiza_wstepna/dualizm_polski.xlsx',
   sheet = 'dane'
 )
 
-View(dane)
+dane
+# View(dane)
 
 
 # ==============================================================================
@@ -336,6 +362,7 @@ cor_matrix <- dane %>%
 
 cor_matrix_upper <- cor_matrix
 cor_matrix_upper[lower.tri(cor_matrix_upper)] <- NA
+diag(cor_matrix_upper) <- NA
 
 cor_table <- cor_matrix_upper %>%
   as.data.frame() %>%
@@ -377,6 +404,10 @@ cor_table %>%
 # WSZYSTKIE PARY ZMIENNYCH SKORELOWANYCH > 0.7
 # ==============================================================================
 
+cor_matrix <- dane %>%
+  select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
+
 cor_matrix_upper <- cor_matrix
 cor_matrix_upper[lower.tri(cor_matrix_upper, diag = TRUE)] <- NA
 
@@ -388,17 +419,26 @@ cor_matrix_upper %>%
   ggplot(aes(x = reorder(paste(Var1, "-", Var2), abs_value), 
              y = value, 
              fill = value > 0)) +
-  geom_col() +
+  geom_col(show.legend = FALSE) + 
+  geom_hline(yintercept = c(-0.7, 0.7), 
+             linetype = "dashed", 
+             color = "darkgrey", 
+             linewidth = 0.6) +
+  geom_text(aes(label = round(value, 2)), 
+            hjust = -0.2, 
+            size = 3.5, 
+            fontface = "bold") +
   coord_flip() +
-  scale_fill_manual(
-    values = c("TRUE" = "#FF0000", "FALSE" = "#FF0000"),
-    labels = c("Dodatnia", "Ujemna")
-  ) +
+  scale_fill_manual(values = c("TRUE" = "#FF0000", "FALSE" = "#FF0000")) +
   theme_minimal() +
   labs(
     title = "Wszystkie korelacje >= 0.7",
     x = "Para zmiennych",
-    y = "Współczynnik korelacji",
-    fill = "Typ"
+    y = "Współczynnik korelacji"
   ) +
-  theme(legend.position = "bottom")
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  )
+
