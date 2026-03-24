@@ -2,47 +2,6 @@
 # INSTALACJA I IMPORT BIBLIOTEK
 # ==============================================================================
 
-if (!require("readxl")) install.packages("readxl")
-if (!require("tidyverse")) install.packages("tidyverse")
-if (!require("e1071")) install.packages("e1071")
-if (!require("ineq")) install.packages("ineq")
-if (!require("kableExtra")) install.packages("kableExtra")
-if (!require("gridExtra")) install.packages("gridExtra")
-if (!require("corrplot")) install.packages("corrplot")
-if (!require("reshape2")) install.packages("reshape2")
-if (!require("tibble")) install.packages("tibble")
-if (!require("ggrepel")) install.packages("ggrepel")
-if (!require("ggpubr")) install.packages("ggpubr")
-if (!require("viridis")) install.packages("viridis")
-if (!require("car")) install.packages("car")
-if (!require("purrr")) install.packages("purrr")
-if (!require("tidytext")) install.packages("tidytext")
-if (!require("ggplot2")) install.packages("ggplot2")
-if (!require("dplyr")) install.packages("dplyr")
-if (!require("tidyr")) install.packages("tidyr")
-if (!require("reactable")) install.packages("reactable")
-
-library(readxl)
-library(tidyverse)
-library(e1071)
-library(ineq)
-library(kableExtra)
-library(gridExtra)
-library(corrplot)
-library(reshape2)
-library(tibble)
-library(ggrepel)
-library(ggpubr)
-library(viridis)
-library(car)
-library(purrr)
-library(tidytext)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(reactable)
-
-
 pakiety <- c(
   "tidyverse",
   "readxl",
@@ -235,7 +194,7 @@ dane_wykresy %>%
   facet_wrap(~Zmienna, scales = "free") +
   theme_minimal() +
   labs(
-    title = "Grupa 3: Silna asymetria lewostronna (Skośność < 1.2)",
+    title = "Grupa 1: Silna asymetria lewostronna (Skośność < 1.2)",
     x = "Wartość", y = "Liczba wystąpień"
   ) +
   theme(strip.text = element_text(size = 11, face = "bold"))
