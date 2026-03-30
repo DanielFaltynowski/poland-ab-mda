@@ -30,8 +30,8 @@ package.check <- lapply(pakiety, function(x) {
 # ==============================================================================
 
 dane <- read_xlsx(
-  path = './01_analiza_wstepna/dualizm_polski.xlsx',
-  sheet = 'dane'
+  path = './../../data/cleaned_data/poland_ab.xlsx',
+  sheet = 'dane_wsp'
 )
 
 dane
