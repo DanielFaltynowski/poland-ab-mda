@@ -14,13 +14,15 @@ dane <- read_xlsx(
 dane
 View(dane)
 
+wojewodztwa <- dane_raw[[1]]
+
 dane <- dane[, -c(1)]
 
 library(dplyr)
 library(tidyr)
 
 lista_zmiennych <- dane %>%
-  select(where(is.numeric)) %>%
+  dplyr::select(where(is.numeric)) %>%
   summarise(across(everything(), ~ (sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE)) * 100)) %>%
   pivot_longer(everything(), names_to = "zmienna", values_to = "cv") %>%
   filter(cv > 15) %>%
@@ -33,7 +35,6 @@ dput(lista_zmiennych)
 dane_wybrane <- dane %>%
   dplyr::select(1, all_of(lista_zmiennych))
 
-# Sprawdź wynik
 dane_wybrane
 
 d <- as.matrix(dane_wybrane)
@@ -55,3 +56,31 @@ hellwig_wyniki
 topsis_wyniki <- topsis(d, w, i)
 topsis_wyniki
 
+
+# ==============================================================================
+# TABELE WYNIKÓW
+# ==============================================================================
+
+hellwig_tabela <- data.frame(
+  Wojewodztwo = wojewodztwa,
+  Miernik = as.numeric(hellwig_wyniki[[1]]),
+  Ranking = rank(-as.numeric(hellwig_wyniki[[1]]))
+) %>%
+  arrange(Ranking)
+
+topsis_tabela <- data.frame(
+  Wojewodztwo = wojewodztwa,
+  Miernik = as.numeric(topsis_wyniki$score),
+  Ranking = rank(-as.numeric(topsis_wyniki$score))
+) %>%
+  arrange(Ranking)
+
+# ==============================================================================
+# WYŚWIETLENIE WYNIKÓW
+# ==============================================================================
+
+cat("\n--- RANKING METODĄ HELLWIGA ---\n")
+print(hellwig_tabela, row.names = FALSE)
+
+cat("\n--- RANKING METODĄ TOPSIS ---\n")
+print(topsis_tabela, row.names = FALSE)

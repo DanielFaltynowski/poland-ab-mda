@@ -1,3 +1,4 @@
+
 pakiety <- c(
   "readxl",
   "corrplot",
@@ -10,8 +11,7 @@ pakiety <- c(
   "paran",
   "psych",
   "ggfortify",
-  "ggrepel",
-  "dplyr"
+  "ggrepel"
 )
 
 package.check <- lapply(pakiety, function(x) {
@@ -21,91 +21,39 @@ package.check <- lapply(pakiety, function(x) {
   }
 })
 
+dane1 <- read_excel("dane1.xlsx")
+dane1
+str(dane1)
 
-# ==============================================================================
-# IMPORT DANYCH
-# ==============================================================================
+samochody = dane1[, 1]; samochody
+stan = dane1[,12]; stan
 
+dane2 <- dane1[,c(1:11)] # cechy ilościowe i opis wierszy
+dane2
+str(dane2)
 
-dane <- read_xlsx(
-  path = './../../data/dane.xlsx',
-  sheet = 'dane'
-)
-
-dane <- dane[ -c(1) ]
-
+dane <- dane1[,c(2:11)] # tylko cechy ilościowe
 dane
 View(dane)
 
+dane <- as.data.frame(dane1[,2:11])
+rownames(dane) <- dane1$samochody
+dane
 
-# ==============================================================================
-# MACIERZ KORELACJI
-# ==============================================================================
-
-
-cor_matrix <- dane %>%
-  dplyr::select(where(is.numeric)) %>%
-  cor(use = "complete.obs")
-
-
-corrplot(
-  cor_matrix,
-  method = "circle",
-  type = "upper",
-  tl.col = "black",
-  tl.srt = 45,
-  col = colorRampPalette(c("#ef5350", "white", "#42a5f5"))(200),
-  title = "Wariant: Okręgi (wielkość = siła korelacji)",
-  mar = c(0,0,2,0)
-)
-
-
-# ==============================================================================
-# WYBIERAMY TE ZMIENNE DO PCA, DLA KTÓRYCH
-# WSPÓŁCZYNNIK ZMIENNOŚCI >= 0.1
-# kORELACJA W PRZEDZIALE OD 0.7 DO 0.9
-# ==============================================================================
-
-
-zmiennosc_wieksza_niz_25 <- names(which(apply(dane, 2, function(x) (sd(x, na.rm = T)/mean(x, na.rm = T))*100) > 25))
-dane <- dane[zmiennosc_wieksza_niz_25]
-View(dane)
-
-macierz_kor <- abs(cor(dane, use = "complete.obs"))
-skorelowane_zmienne <- c()
-N <- ncol(macierz_kor)
-if (N > 1) {
-  for (i in 1:(N - 1)) {
-    for (j in (i + 1):N) {
-      kor_wartosc <- macierz_kor[i, j]
-      if (kor_wartosc >= 0.7 && kor_wartosc <= 0.9) {
-        skorelowane_zmienne <- c(skorelowane_zmienne, colnames(macierz_kor)[i], colnames(macierz_kor)[j])
-      }
-    }
-  }
-}
-zmienne_skorelowane_30_90 <- unique(skorelowane_zmienne)
-dane <- dane[zmienne_skorelowane_30_90]
-View(dane)
-
-
-# ==============================================================================
-# MACIERZ KORELACJI PO ELIMINACJI
-# ==============================================================================
-
-
+# Korelacja
 kor <- cor(dane); kor
 pkor <- pcor(dane)$estimate; pkor
+colnames(pkor) <- colnames(dane)
+rownames(pkor) <- colnames(dane)
 
+corrplot(kor, method="square")
+corrplot(pkor, method = "square")
 par(mfrow = c(1,2))
 corrplot(kor, method = "square", tl.col = "black")
 corrplot(pkor, method = "square", tl.col = "black")
+
 par(mfrow = c(1,1))
 
-
-# ==============================================================================
-# PCA
-# ==============================================================================
 
 dane_pca <- prcomp(dane, scale=TRUE)
 dane_pca                             # ładunki składowe
@@ -119,6 +67,7 @@ eig.val
 
 # ciekawa ciekawostka -> suma wszystkich eigenvalue jest równa liczbie cech
 
+View(dane_pca)
 dane_pca$x           # współrzędne przypadków (podobno przydatne do rysowania wykresów)
 dane_pca$x[,1]
 dane_pca$x[,2]
@@ -291,4 +240,73 @@ ggplot(df_horn, aes(x = Składowa)) +
 
 # Podobno warto go dołączyć do pracy
 fviz_eig(dane_pca, addlabels = TRUE, ylim = c(0, 60), main = "Scree Plot")
+
+
+
+# 1. Poprawka pierwszego wykresu (ggplot z ręcznym mapowaniem)
+# Tworzymy ramkę danych z wyników PCA
+df_pca_plot <- as.data.frame(dane_pca$x)
+df_pca_plot$samochody <- dane1[,1] # dodajemy nazwy aut
+
+# label = TRUE w autoplot automatycznie dodaje nazwy wierszy z danych
+autoplot(dane_pca, data = dane1, 
+         loadings = TRUE, 
+         loadings.colour = "blue",
+         loadings.label = TRUE, 
+         loadings.label.size = 4,
+         label = TRUE,          # To włącza etykiety punktów
+         label.colour = "black",
+         label.vjust = -0.5) + 
+  ggtitle("Biplot") +
+  theme_bw()
+
+# autoplot (z kolorem "stan")
+autoplot(dane_pca, data = dane1, 
+         colour = "stan", 
+         loadings = TRUE, 
+         loadings.colour = "blue",
+         loadings.label = TRUE, 
+         loadings.label.size = 4,
+         label = TRUE, 
+         label.repel = TRUE) + 
+  ggtitle("Biplot z podziałem na stan") +
+  theme_light() +
+  # KLUCZOWY FRAGMENT:
+  guides(colour = guide_legend(
+    override.aes = list(
+      shape = 15,          # Zmienia kropkę/literę na kwadrat
+      size = 5,            # Powiększa kwadrat w legendzie
+      label = ""           # Usuwa literę "a"
+    )
+  ))
+
+#################################################################3
+
+fviz_pca_biplot(dane_pca, 
+                repel = TRUE,
+                col.var = "deepskyblue",
+                title = "Biplot", geom = "point")
+
+fviz_pca_biplot(dane_pca, 
+                geom.ind = c("point", "text"), # pokazuje punkty i napisy dla aut
+                geom.var = c("arrow", "text"), # pokazuje strzałki i napisy dla cech
+                repel = TRUE, 
+                col.var = "blue", 
+                col.ind = "black")
+
+
+fviz_pca_var(dane_pca, repel = TRUE,       # repel = TRUE etykiety 
+             col.var = "blue")          # mają się nie nakładać
+
+
+fviz_pca_var(dane_pca, col.var = "cos2", 
+             gradient.cols = c("blue", "black", "red"), repel = TRUE)
+
+
+fviz_pca_ind(dane_pca, 
+             col.ind = "cos2", 
+             gradient.cols = c("blue", "black", "red"), 
+             repel = TRUE,
+             title = "Mapa obserwacji – kolor wg cos2")
+
 

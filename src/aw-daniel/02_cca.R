@@ -7,6 +7,8 @@ dane <- read_xlsx(
   sheet = 'dane'
 )
 
+
+
 dane
 View(dane)
 
@@ -14,8 +16,8 @@ View(dane)
 # WYBÓR ZMIENNYCH DO ANALIZY
 # ==============================================================================
 
-zmienne_zbioru_X <- c("x06", "x07") 
-zmienne_zbioru_Y <- c("x43", "x44") 
+zmienne_zbioru_X <- c("x11", "x12", "x13", "x14", "x15") 
+zmienne_zbioru_Y <- c("x27", "x28", "x29", "x30") 
 
 X <- dane %>% dplyr::select(all_of(zmienne_zbioru_X))
 Y <- dane %>% dplyr::select(all_of(zmienne_zbioru_Y))
@@ -87,3 +89,4 @@ p.asym(rho, n, p, q, tstat ="Roy")
 
 cc_red <- candisc::cancor(X, Y, set.names = c('X', 'Y'))
 redundancy(cc_red)
+

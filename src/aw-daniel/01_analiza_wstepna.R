@@ -1,3 +1,26 @@
+pakiety <- c(
+  "tidyverse",
+  "readxl",
+  "e1071",
+  "ineq",
+  "kableExtra", 
+  "gridExtra", 
+  "corrplot", 
+  "reshape2", 
+  "ggrepel",
+  "ggpubr", 
+  "reactable", 
+  "tidytext",
+)
+
+package.check <- lapply(pakiety, function(x) {
+  if (!require(x, character.only = TRUE)) {
+    install.packages(x, dependencies = TRUE)
+    library(x, character.only = TRUE)
+  }
+})
+
+
 # ==============================================================================
 # IMPORT DANYCH
 # ==============================================================================
@@ -16,7 +39,7 @@ View(dane)
 # ==============================================================================
 
 statystyki <- dane %>%
-  select(where(is.numeric)) %>%
+  dplyr::select(where(is.numeric)) %>%
   pivot_longer(cols = everything(), names_to = "Zmienna", values_to = "Wartosc") %>%
   group_by(Zmienna) %>%
   summarise(
@@ -289,7 +312,7 @@ statystyki %>%
 # ==============================================================================
 
 cor_matrix <- dane %>%
-  select(where(is.numeric)) %>%
+  dplyr::select(where(is.numeric)) %>%
   cor(use = "complete.obs")
 
 cor_matrix_upper <- cor_matrix
@@ -335,6 +358,10 @@ cor_table %>%
 # ==============================================================================
 # HEATMAPA
 # ==============================================================================
+
+cor_matrix <- dane %>%
+  dplyr::select(where(is.numeric)) %>%
+  cor(use = "complete.obs")
 
 
 corrplot(

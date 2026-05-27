@@ -28,3 +28,4 @@ package.check <- lapply(pakiety, function(x) {
     library(x, character.only = TRUE)
   }
 })
+
