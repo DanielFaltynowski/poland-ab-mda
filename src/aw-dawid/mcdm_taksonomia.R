@@ -6,41 +6,68 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-
-dane <- read_xlsx(
-  path = 'poland_ab.xlsx',
-  sheet = 'raw_data'
-)
+# Import danych
+dane <- read_xlsx(path = 'poland_ab.xlsx', sheet = 'raw_data')
+nazwy_wojewodztw <- dane[[1]] # Zapisujemy nazwy województw (np. pierwsza kolumna)
+dane <- dane[-c(1)]           # Usuwamy kolumnę tekstową, zostają same numeryczne
 
 # ==============================================================================
-# 2. SELEKCJA ZMIENNYCH (Współczynnik zmienności > 15%)
+# 2. SELEKCJA ZMIENNYCH
 # ==============================================================================
-lista_zmiennych <- dane %>%
-  dplyr::select(where(is.numeric)) %>%
-  summarise(across(everything(), ~ (sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE)) * 100)) %>%
-  pivot_longer(everything(), names_to = "zmienna", values_to = "cv") %>%
-  filter(cv > 15) %>%
-  pull(zmienna)
+# KROK 1: Selekcja na podstawie zmienności (> 25%)
+wsp_zmiennosci <- apply(dane, 2, function(x) (sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)) * 100)
+zmienne_wysoka_zmiennosc <- names(wsp_zmiennosci[wsp_zmiennosci > 25])
 
-X_mat <- dane %>% dplyr::select(all_of(lista_zmiennych)) %>% as.matrix()
-rownames(X_mat) <- dane[[1]] 
+dane_filtr1 <- dane[zmienne_wysoka_zmiennosc]
+cat("Liczba zmiennych po filtrze zmienności (>25%):", ncol(dane_filtr1), "\n")
+
+# KROK 2: Selekcja na podstawie korelacji (eliminacja r > 0.7)
+macierz_kor <- abs(cor(dane_filtr1, use = "complete.obs"))
+
+do_usuniecia <- c()
+N <- ncol(macierz_kor)
+
+for (i_kor in 1:(N - 1)) {
+  for (j_kor in (i_kor + 1):N) {
+    if (macierz_kor[i_kor, j_kor] > 0.7) {
+      do_usuniecia <- c(do_usuniecia, colnames(macierz_kor)[j_kor])
+    }
+  }
+}
+
+zmienne_do_usuniecia <- unique(do_usuniecia)
+dane_final <- dane_filtr1[, !(colnames(dane_filtr1) %in% zmienne_do_usuniecia)]
+
+cat("Liczba zmiennych po eliminacji korelacji (pozostały te z r <= 0.7):", ncol(dane_final), "\n")
+cat("Zmienne, które pozostały w analizie:\n", paste(colnames(dane_final), collapse = ", "), "\n")
+
+# ==============================================================================
+# 2B. PRZYGOTOWANIE MACIERZY DO METOD MCDM/TAKSONOMII
+# ==============================================================================
+X_mat <- as.matrix(dane_final)
+rownames(X_mat) <- nazwy_wojewodztw
 
 m <- nrow(X_mat)
 n_vars <- ncol(X_mat)
 
 # ==============================================================================
-# 3. DEFINICJA WAG I KIERUNKÓW ZMIENNYCH
+# 3. DEFINICJA KIERUNKÓW ZMIENNYCH (STYMULANTY "+" / DESTYMULANTY "-")
+# ==============================================================================
+# Upewnij się, że poniższy wektor odpowiada dokładnie zmiennym: 
+# x01, x03, x09, x16, x23, x26, x36, x37, x45, x49, x51
 i <- c(
-  "+", "+", "-", "+", "+", # x01, x02, x03, x04, x09
-  "+", "+", "+", "+", "+", # x11, x12, x13, x14, x16
-  "+", "+", "+", "+", "+", # x17, x18, x19, x20, x21
-  "+", "+", "+", "+", "+", # x22, x23, x24, x26, x27
-  "+", "+", "+", "+", "+", # x31, x33, x34, x35, x36
-  "+", "+", "+", "+", "-", # x37, x38, x39, x42, x43
-  "-", "+", "+", "+", "+", # x44, x45, x46, x48, x49
-  "+", "+"                 # x50, x51
+  "+", # x01 - gęstość zaludnienia (os / km2) - 2021 SP
+  "-", # x03 - emigranci - 2021 sp - odsetek emigrantów w % względem ludności województwa
+  "+", # x09 - studenccy uczelni na 1,000 ludności - 2024
+  "+", # x16 - liczba rowerów publicznych na 100,000 ludności 2024
+  "+", # x23 - LINIE REGULARNE KOMUNIKACJI AUTOBUSOWEJ w km na 100km^2 w 2024
+  "-", # x26 - wypadki drogowe na 100,000 mieszkańców 2024 [ZMIANA NA DESTYMULANTĘ]
+  "+", # x36 - zajęcia prowadzone przez teatry i instytucje muzyczne... na 10,000 ludności w 2024
+  "+", # x37 - uczestnicy imprez (wydarzeń kulturalnych) organizowanych przez teatry...
+  "+", # x45 - miejsca noclegowe na 1000 ludności w 2024
+  "+", # x49 - liczba miejsc w domach studenckich w stosunku do liczby studentów 2024
+  "+"  # x51 - zasoby mieszkaniowe gim komunalne 2024 na 10,000 mieszkańców
 )
-
 
 wagi <- rep(1, n_vars) / n_vars 
 
@@ -50,15 +77,12 @@ destymulanty_idx <- which(i == "-")
 # ==============================================================================
 # 4. METODA COPRAS
 # ==============================================================================
-# Normalizacja sumacyjna
 X_norm_copras <- prop.table(X_mat, margin = 2)
 X_weighted_copras <- sweep(X_norm_copras, 2, wagi, "*")
 
-# Sumy dla stymulant (S+) i destymulant (S-)
 S_plus <- rowSums(X_weighted_copras[, stymulanty_idx, drop = FALSE])
 S_minus <- rowSums(X_weighted_copras[, destymulanty_idx, drop = FALSE])
 
-# Stopień użyteczności Qi
 S_minus_min <- min(S_minus)
 Q <- S_plus + (sum(S_minus) / (S_minus * sum(S_minus_min / S_minus)))
 U_copras <- (Q / max(Q)) * 100
@@ -79,12 +103,10 @@ for (j in 1:n_vars) {
   }
 }
 
-# Odległości euklidesowe z uwzględnieniem wag
 odleglosci_hellwig <- apply(X_std, 1, function(row) {
   sqrt(sum(wagi * (row - wzorzec)^2))
 })
 
-# Miernik rozwoju Hellwiga (H)
 d_0 <- mean(odleglosci_hellwig) + 2 * sd(odleglosci_hellwig)
 H_hellwig <- 1 - (odleglosci_hellwig / d_0)
 
@@ -92,7 +114,7 @@ H_hellwig <- 1 - (odleglosci_hellwig / d_0)
 # 6. ŁĄCZENIE WYNIKÓW I KLASYFIKACJA STATYSTYCZNA
 # ==============================================================================
 wyniki_koncowe <- data.frame(
-  Wojewodztwo = dane[[1]],
+  Wojewodztwo = nazwy_wojewodztw,
   COPRAS_U = round(U_copras, 2),
   Hellwig_Wazony = round(H_hellwig, 4)
 )
