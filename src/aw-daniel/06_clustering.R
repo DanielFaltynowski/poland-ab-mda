@@ -466,7 +466,7 @@ ggplot(wyniki_silhouette, aes(x = k, y = y)) +
     axis.line = element_line(size = 1.5, color = "black")
   )
 
-k_final <- 3
+k_final <- 4
 set.seed(123)
 model_fuzzy <- cmeans(dane_finalne, centers = k_final, iter.max = 100, m = m)
 
