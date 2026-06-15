@@ -145,14 +145,20 @@ ggplot(mds_dane, aes(x = X, y = Y)) +
 # 3. GRUPOWANIE PRZY POMOCY DENDROGRAMÓW (METODA WARDA)
 # ==============================================================================
 
+# Upewniamy się, że mamy potrzebny pakiet do poziomych kwadratów
+if(!require(dendextend)) install.packages("dendextend")
+library(dendextend)
+
 # Hierarchiczne grupowanie metodą Warda
 grupowanie_ward <- hclust(macierz_odleglosci, method = "ward.D2")
 
-# Wykres profesjonalnego dendrogramu
-par(mar = c(5, 4, 4, 10)) # Poszerzenie marginesu prawego na etykiety
+# Tworzymy obiekt dendrogramu i modyfikujemy go
 dendrogram_obj <- as.dendrogram(grupowanie_ward)
 
-# Zmiana orientacji dendrogramu na poziomą (czytelność dla województw)
+# Poszerzenie marginesu (w poziomie etykiety są po prawej, więc zwiększamy mar[4])
+par(mar = c(5, 4, 4, 12)) 
+
+# Rysujemy poziomy dendrogram
 plot(dendrogram_obj, horiz = TRUE, 
      main = "STRUKTURA PODZIAŁU HIERARCHICZNEGO (METODA WARDA)",
      sub = "Metryka: euklidesowa | Standaryzacja: Tak",
@@ -160,6 +166,11 @@ plot(dendrogram_obj, horiz = TRUE,
      cex.main = 1.4, font.main = 2, col.main = "#1D3557",
      cex.lab = 1.1, font.lab = 2)
 
-# Nałożenie sugerowanego podziału na 3 główne gałęzie rozwoju
-rect.hclust(grupowanie_ward, k = 3, border = c("#E63946", "#457B9D", "#1B5E20"))
-par(mfrow = c(1, 1)) # Reset okna graficznego
+# !!! KLUCZOWA ZMIANA !!! 
+# Nakładamy prostokąty w wersji poziomej (horiz = TRUE)
+rect.dendrogram(dendrogram_obj, k = 3, horiz = TRUE, 
+                border = c("#E63946", "#457B9D", "#1B5E20"), 
+                lwd = 2, lty = 2) # lwd to grubość, lty to linia przerywana dla profesjonalnego wyglądu
+
+# Reset okna graficznego
+par(mfrow = c(1, 1))
